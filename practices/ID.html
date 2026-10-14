@@ -1,0 +1,20 @@
+<script>
+    const employees = [
+{ id: 1, name: "Amit Sharma", department: "HR", salary: 35000 },
+{ id: 2, name: "Priya Verma", department: "IT", salary: 50000 },
+{ id: 3, name: "Ravi Kumar", department: "Finance", salary: 60000 },
+{ id: 4, name: "Neha Singh", department: "IT", salary: 55000 },
+{ id: 5, name: "Vikram Patel", department: "HR", salary: 40000 },
+{ id: 6, name: "Anjali Mehta", department: "Marketing", salary: 45000 },
+{ id: 7, name: "Suresh Reddy", department: "Finance", salary: 70000 },
+{ id: 8, name: "Kiran Nair", department: "IT", salary: 48000 },
+{ id: 9, name: "Pooja Joshi", department: "Marketing", salary: 42000 },
+{ id: 10, name: "Arjun Desai", department: "Finance", salary: 65000 }
+];
+
+ const input =  Number(prompt("enter a number"))
+
+const IDemployee = employees.filter((employee)=> employee.id === input)
+alert(JSON.stringify(IDemployee , null ,2));
+
+</script>
