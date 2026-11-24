@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { useExpenses } from "../context/ExpenseContext";
 import "./Expensechart.css";
@@ -15,9 +16,15 @@ const FALLBACK_COLOR = "#9ca3af";
 const getColor = (name) => COLORS[name.toLowerCase()] ?? FALLBACK_COLOR;
 const formatINR = (n) => `₹${Number(n).toLocaleString("en-IN")}`;
 
-function ExpenseChart() {
+function ExpenseChart({ expenses: selectedExpenses }) {
   const { monthlyExpenses } = useExpenses();
-  const expenses = monthlyExpenses;
+  const expenses = selectedExpenses ?? monthlyExpenses;
+  const totals = useMemo(() => expenses.reduce((acc, expense) => {
+    acc[expense.category] = (acc[expense.category] || 0) + Number(expense.amount || 0);
+    return acc;
+  }, {}), [expenses]);
+  const data = useMemo(() => Object.entries(totals).map(([name, value]) => ({ name, value })), [totals]);
+  const total = useMemo(() => data.reduce((sum, item) => sum + item.value, 0), [data]);
 
   if (expenses.length === 0) {
     return (
@@ -27,16 +34,6 @@ function ExpenseChart() {
       </div>
     );
   }
-
-  // Add up the amounts of each category: { Food: 700, Travel: 1500, ... }
-  const totals = expenses.reduce((acc, e) => {
-    acc[e.category] = (acc[e.category] || 0) + e.amount;
-    return acc;
-  }, {});
-
-  // Turn it into the array that Recharts needs: [{ name, value }, ...]
-  const data = Object.entries(totals).map(([name, value]) => ({ name, value }));
-  const total = data.reduce((sum, item) => sum + item.value, 0);
 
   return (
     <div className="chart-card">
@@ -59,7 +56,16 @@ function ExpenseChart() {
                   <Cell key={item.name} fill={getColor(item.name)} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value) => formatINR(value)} />
+              <Tooltip
+                cursor={false}
+                formatter={(value) => formatINR(value)}
+                contentStyle={{
+                  borderRadius: 10,
+                  border: "1px solid var(--dash-chart-tooltip-border)",
+                  background: "var(--dash-chart-tooltip-bg)",
+                  color: "var(--dash-chart-tooltip-color)",
+                }}
+              />
             </PieChart>
           </ResponsiveContainer>
 

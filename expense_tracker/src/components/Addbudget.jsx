@@ -1,18 +1,23 @@
 import { useState } from "react";
 import { useExpenses } from "../context/ExpenseContext";
+import { getLocalDateString } from "../utils/date";
 import "./Addbudget.css";
 
 function Addbudget({ onDone }) {
-  const { budget, dispatch } = useExpenses();
-  const [value, setValue] = useState(budget || "");
+  const { budget, budgets = {}, dispatch } = useExpenses();
+  const [month, setMonth] = useState(() => getLocalDateString().slice(0, 7));
+  const [value, setValue] = useState(() => budgets[getLocalDateString().slice(0, 7)] ?? (budget || ""));
   const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!value || Number(value) <= 0) return;
+    if (!value || !Number.isFinite(Number(value)) || Number(value) <= 0) {
+      setError("Enter a budget amount greater than zero.");
+      return;
+    }
     setError("");
     try {
-      await dispatch({ type: "set_budget", payload: Number(value) });
+      await dispatch({ type: "set_budget", payload: { amount: Number(value), month } });
       onDone();
     } catch (error) {
       setError(error.message);
@@ -51,6 +56,21 @@ function Addbudget({ onDone }) {
             placeholder="Enter Budget Amount"
             value={value}
             onChange={(e) => setValue(e.target.value)}
+          />
+
+          <label className="form-label" htmlFor="budget-month">
+            Budget Month
+          </label>
+          <input
+            id="budget-month"
+            className="form-input"
+            type="month"
+            value={month}
+            onChange={(e) => {
+              const nextMonth = e.target.value;
+              setMonth(nextMonth);
+              setValue(budgets[nextMonth] ?? (nextMonth === getLocalDateString().slice(0, 7) ? budget || "" : ""));
+            }}
           />
 
           {error && <p className="budget-form-error" role="alert">{error}</p>}

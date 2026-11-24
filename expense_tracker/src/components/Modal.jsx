@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import "./Modal.css";
 
-function Modal({ isOpen, onClose, children }) {
+function Modal({ isOpen, onClose, children, className = "" }) {
   useEffect(() => {
     if (!isOpen) return undefined;
 
@@ -23,7 +23,7 @@ function Modal({ isOpen, onClose, children }) {
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="app-modal-backdrop" onClick={onClose}>
+    <div className={`app-modal-backdrop${className ? ` ${className}` : ""}`} onClick={onClose}>
       <div
         className="app-modal-content"
         role="dialog"

@@ -1,20 +1,148 @@
-import { createContext, useContext, useEffect, useReducer } from "react";
+import { createContext, useContext, useEffect, useReducer, useState } from "react";
 
 const ExpenseContext = createContext(null);
 const TOKEN_KEY = "expense-tracker-token";
+const PERIOD_STORAGE_KEY = "expense-tracker-period";
 
-const initialState = { budget: 0, expenses: [], user: null, loading: true };
+const initialState = { budget: 0, budgets: {}, expenses: [], user: null, loading: true };
+
+const currentMonthKey = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+};
+
+function formatPeriodDate(date) {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function isValidDate(value) {
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  return year >= 1000 && year <= 9999 && month >= 1 && month <= 12
+    && day >= 1 && day <= new Date(year, month, 0).getDate();
+}
+
+function createDefaultPeriod(date = new Date()) {
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+  const endDay = new Date(year, month, 0).getDate();
+  const startDate = `${monthKey}-01`;
+  const endDate = `${monthKey}-${String(endDay).padStart(2, "0")}`;
+
+  return {
+    type: "month",
+    month,
+    year,
+    startDate,
+    endDate,
+    label: date.toLocaleDateString("en-IN", { month: "long", year: "numeric" }),
+  };
+}
+
+function normalizePeriod(period) {
+  if (!period || typeof period !== "object" || Array.isArray(period)) return null;
+
+  if (period.type === "all") {
+    return { type: "all", month: null, year: null, startDate: null, endDate: null, label: "All time" };
+  }
+
+  if (period.type === "month") {
+    const month = Number(period.month);
+    const year = Number(period.year);
+    if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 1000 || year > 9999) {
+      return null;
+    }
+    const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+    const lastDay = new Date(year, month, 0).getDate();
+    return {
+      type: "month",
+      month,
+      year,
+      startDate: `${monthKey}-01`,
+      endDate: `${monthKey}-${String(lastDay).padStart(2, "0")}`,
+      label: new Date(year, month - 1, 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" }),
+    };
+  }
+
+  if (period.type === "day") {
+    const day = period.startDate || period.endDate;
+    if (!isValidDate(day)) return null;
+    const [year, month] = day.split("-").map(Number);
+    return {
+      type: "day",
+      month,
+      year,
+      startDate: day,
+      endDate: day,
+      label: formatPeriodDate(day),
+    };
+  }
+
+  if (period.type === "range") {
+    const { startDate, endDate } = period;
+    if (!isValidDate(startDate) || !isValidDate(endDate) || startDate > endDate) return null;
+    return {
+      type: "range",
+      month: null,
+      year: null,
+      startDate,
+      endDate,
+      label: `${formatPeriodDate(startDate)} – ${formatPeriodDate(endDate)}`,
+    };
+  }
+
+  return null;
+}
+
+function loadStoredPeriod() {
+  const defaultPeriod = createDefaultPeriod();
+  const storedValue = localStorage.getItem(PERIOD_STORAGE_KEY);
+  if (!storedValue) return defaultPeriod;
+
+  let savedPeriod;
+  try {
+    savedPeriod = JSON.parse(storedValue);
+  } catch (error) {
+    if (error instanceof SyntaxError) return defaultPeriod;
+    throw error;
+  }
+
+  return normalizePeriod(savedPeriod) || defaultPeriod;
+}
 
 function reducer(state, action) {
   switch (action.type) {
     case "load":
-      return { ...state, budget: action.payload.budget, expenses: action.payload.expenses, loading: false };
+      return {
+        ...state,
+        budget: action.payload.budget,
+        budgets: action.payload.budgets || {},
+        expenses: action.payload.expenses,
+        loading: false,
+      };
     case "auth":
       return { ...state, user: action.payload.user, loading: false };
     case "logout":
       return { ...initialState, loading: false };
-    case "set_budget":
-      return { ...state, budget: action.payload };
+    case "set_budget": {
+      const month = action.payload.month || currentMonthKey();
+      const amount = Number(action.payload.amount ?? action.payload.budget);
+      return {
+        ...state,
+        budget: month === currentMonthKey() ? amount : state.budget,
+        budgets: { ...state.budgets, [month]: amount },
+      };
+    }
     case "add_expense":
       return { ...state, expenses: [action.payload, ...state.expenses] };
     case "edit_expense":
@@ -28,6 +156,21 @@ function reducer(state, action) {
 
 export function ExpenseProvider({ children }) {
   const [state, dispatchState] = useReducer(reducer, initialState);
+  const [activePeriod, setActivePeriod] = useState(loadStoredPeriod);
+
+  useEffect(() => {
+    localStorage.setItem(PERIOD_STORAGE_KEY, JSON.stringify(activePeriod));
+  }, [activePeriod]);
+
+  function setPeriod(period) {
+    const normalizedPeriod = normalizePeriod(period);
+    if (!normalizedPeriod) throw new TypeError("Invalid period. Choose all, a valid month, day, or date range.");
+    setActivePeriod(normalizedPeriod);
+  }
+
+  function clearPeriod() {
+    setActivePeriod(createDefaultPeriod());
+  }
 
   async function api(path, options = {}) {
     const token = localStorage.getItem(TOKEN_KEY);
@@ -99,8 +242,11 @@ export function ExpenseProvider({ children }) {
 
   async function dispatch(action) {
     if (action.type === "set_budget") {
-      const data = await api("/api/budget", { method: "PUT", body: JSON.stringify({ amount: action.payload }) });
-      dispatchState({ type: "set_budget", payload: data.budget });
+      const payload = typeof action.payload === "number"
+        ? { amount: action.payload, month: currentMonthKey() }
+        : action.payload;
+      const data = await api("/api/budget", { method: "PUT", body: JSON.stringify(payload) });
+      dispatchState({ type: "set_budget", payload: { month: data.month, amount: data.budget } });
     } else if (action.type === "add_expense") {
       const expense = await api("/api/expenses", { method: "POST", body: JSON.stringify(action.payload) });
       dispatchState({ type: "add_expense", payload: expense });
@@ -132,6 +278,9 @@ export function ExpenseProvider({ children }) {
       requestPasswordReset,
       resetPassword,
       logout,
+      activePeriod,
+      setPeriod,
+      clearPeriod,
     }}>
       {children}
     </ExpenseContext.Provider>

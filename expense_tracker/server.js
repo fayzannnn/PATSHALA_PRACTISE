@@ -60,6 +60,14 @@ await run(`CREATE TABLE IF NOT EXISTS budgets (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 )`);
+await run(`CREATE TABLE IF NOT EXISTS monthly_budgets (
+  user_id INTEGER NOT NULL,
+  month_key TEXT NOT NULL,
+  amount REAL NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(user_id, month_key),
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+)`);
 
 function publicUser(row) {
   return { id: row.id, name: row.name, email: row.email };
@@ -200,18 +208,26 @@ app.get("/api/expenses", auth, async (req, res) => {
     [req.userId]
   );
   const budgetRow = await get("SELECT amount FROM budgets WHERE user_id = ?", [req.userId]);
-  res.json({ budget: Number(budgetRow?.amount || 0), expenses });
+  const budgetRows = await all("SELECT month_key, amount FROM monthly_budgets WHERE user_id = ?", [req.userId]);
+  const budgets = Object.fromEntries(budgetRows.map((row) => [row.month_key, Number(row.amount)]));
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const legacyBudget = Number(budgetRow?.amount || 0);
+  res.json({ budget: budgets[currentMonth] ?? legacyBudget, budgets, expenses });
 });
 
 app.put("/api/budget", auth, async (req, res) => {
   const amount = Number(req.body.amount);
+  const now = new Date();
+  const month = String(req.body.month || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ message: "Budget must be zero or a positive amount" });
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return res.status(400).json({ message: "Budget month must use YYYY-MM format" });
   await run(
-    `INSERT INTO budgets (user_id, amount, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
-     ON CONFLICT(user_id) DO UPDATE SET amount = excluded.amount, updated_at = CURRENT_TIMESTAMP`,
-    [req.userId, amount]
+    `INSERT INTO monthly_budgets (user_id, month_key, amount, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT(user_id, month_key) DO UPDATE SET amount = excluded.amount, updated_at = CURRENT_TIMESTAMP`,
+    [req.userId, month, amount]
   );
-  res.json({ budget: amount });
+  res.json({ budget: amount, month });
 });
 
 app.post("/api/expenses", auth, async (req, res) => {
