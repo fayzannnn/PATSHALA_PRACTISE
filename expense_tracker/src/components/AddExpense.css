@@ -161,3 +161,9 @@
   font-size: 22px;
   line-height: 1;
 }
+
+.ae-form-error {
+  margin: -8px 0 16px;
+  color: #b3445d;
+  font-size: 13px;
+}

@@ -1,34 +1,42 @@
 import { useState } from "react";
 import { useExpenses } from "../context/ExpenseContext";
+import { getLocalDateString } from "../utils/date";
 import "./AddExpense.css";
 
 function AddExpense({ onDone }) {
-  const { dispatch, remaining} = useExpenses();
+  const { dispatch } = useExpenses();
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const overbudget = amount!=="" && Number(amount) > remaining;
+  const [date, setDate] = useState(getLocalDateString);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title.trim() || !category || Number(amount) <= 0) return;
+    if (!title.trim() || !category || Number(amount) <= 0) {
+      setError("Enter an expense name, choose a category, and enter an amount greater than zero.");
+      return;
+    }
 
-    dispatch({
-      type: "add_expense",
-      payload: {
-        id: Date.now(),
-        title: title.trim(),
-        amount: Number(amount),
-        category,
-        date,
-      },
-    });
-    onDone();
+    setError("");
+    try {
+      await dispatch({
+        type: "add_expense",
+        payload: {
+          id: Date.now(),
+          title: title.trim(),
+          amount: Number(amount),
+          category,
+          date,
+        },
+      });
+      onDone();
+    } catch (submitError) {
+      setError(submitError.message);
+    }
   };
 
   return (
-    <div className="ae-overlay">
       <div className="ae-card">
         <div className="ae-header">
           <h2 className="ae-title">Add Expense</h2>
@@ -103,12 +111,13 @@ function AddExpense({ onDone }) {
             onChange={(e) => setDate(e.target.value)}
           />
 
+          {error && <p className="ae-form-error" role="alert">{error}</p>}
+
           <button type="submit" className="ae-submit">
             <span className="ae-plus">+</span> Add Expense
           </button>
         </form>
       </div>
-    </div>
   );
 }
 

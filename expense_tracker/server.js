@@ -1,14 +1,18 @@
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import sqlite3 from "sqlite3";
 import path from "path";
+import { createHash, randomBytes } from "crypto";
 import { fileURLToPath } from "url";
+import nodemailer from "nodemailer";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || "development-expense-tracker-secret-change-in-production";
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://127.0.0.1:5173";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 app.use(cors({ origin: true, credentials: true }));
@@ -31,6 +35,14 @@ await run(`CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+)`);
+await run(`CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 )`);
 await run(`CREATE TABLE IF NOT EXISTS expenses (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -102,6 +114,78 @@ app.post("/api/auth/login", async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Could not sign in", detail: error.message });
   }
+});
+
+app.post("/api/auth/forgot-password", async (req, res) => {
+  const email = String(req.body.email || "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ message: "Please enter a valid email address" });
+  }
+
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  const smtpPort = Number(process.env.SMTP_PORT || 587);
+  if (!smtpHost || !smtpUser || !smtpPass || !Number.isInteger(smtpPort)) {
+    return res.status(503).json({ message: "Password reset email is not configured. Set the SMTP variables in the server environment." });
+  }
+
+  const user = await get("SELECT id, email FROM users WHERE email = ?", [email]);
+  if (user) {
+    const token = randomBytes(32).toString("hex");
+    const tokenHash = createHash("sha256").update(token).digest("hex");
+    const expiresAt = Date.now() + 60 * 60 * 1000;
+
+    await run("DELETE FROM password_reset_tokens WHERE user_id = ?", [user.id]);
+    await run(
+      "INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
+      [user.id, tokenHash, expiresAt]
+    );
+
+    const resetUrl = new URL("/", FRONTEND_URL);
+    resetUrl.searchParams.set("resetToken", token);
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: process.env.SMTP_SECURE === "true" || smtpPort === 465,
+      auth: { user: smtpUser, pass: smtpPass },
+    });
+
+    try {
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || smtpUser,
+        to: user.email,
+        subject: "Reset your Expenso password",
+        text: `Use this link to reset your password. It expires in one hour: ${resetUrl}`,
+        html: `<p>We received a request to reset your Expenso password.</p><p><a href="${resetUrl}">Reset your password</a></p><p>This link expires in one hour. If you did not request this, you can ignore this email.</p>`,
+      });
+    } catch (error) {
+      await run("DELETE FROM password_reset_tokens WHERE token_hash = ?", [tokenHash]);
+      console.error("Could not send password reset email:", error);
+      return res.status(503).json({ message: "Could not send the reset email. Please try again later." });
+    }
+  }
+
+  res.json({ message: "If an account exists for this email, a password reset link will be sent." });
+});
+
+app.post("/api/auth/reset-password", async (req, res) => {
+  const token = String(req.body.token || "");
+  const password = String(req.body.password || "");
+  if (token.length !== 64) return res.status(400).json({ message: "This password reset link is invalid or expired." });
+  if (password.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters" });
+
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const reset = await get(
+    "SELECT user_id FROM password_reset_tokens WHERE token_hash = ? AND expires_at > ?",
+    [tokenHash, Date.now()]
+  );
+  if (!reset) return res.status(400).json({ message: "This password reset link is invalid or expired." });
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  await run("UPDATE users SET password_hash = ? WHERE id = ?", [passwordHash, reset.user_id]);
+  await run("DELETE FROM password_reset_tokens WHERE user_id = ?", [reset.user_id]);
+  res.json({ message: "Password reset successfully. Please sign in." });
 });
 
 app.get("/api/auth/me", auth, async (req, res) => {

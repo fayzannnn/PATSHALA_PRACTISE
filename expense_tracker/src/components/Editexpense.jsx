@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useExpenses } from "../context/ExpenseContext";
+import { getLocalDateString } from "../utils/date";
 import "./Editexpense.css";
 
 function Editexpense({ id, onDone }) {
@@ -9,7 +10,7 @@ function Editexpense({ id, onDone }) {
   const [title, setTitle] = useState(expense?.title ?? "");
   const [amount, setAmount] = useState(expense?.amount ?? "");
   const [category, setCategory] = useState(expense?.category ?? "Food");
-  const [date, setDate] = useState(expense?.date ?? new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(expense?.date ?? getLocalDateString());
 
   if (!expense) return <p>Expense not Found </p>;
 

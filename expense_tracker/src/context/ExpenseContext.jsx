@@ -41,7 +41,12 @@ export function ExpenseProvider({ children }) {
     });
     if (response.status === 204) return null;
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.message || "Something went wrong");
+    if (!response.ok) {
+      if (response.status === 502 || response.status === 503 && !data.message) {
+        throw new Error("Cannot reach the API server. Restart the app with `npm run dev` to start the frontend and backend.");
+      }
+      throw new Error(data.message || `Request failed (${response.status})`);
+    }
     return data;
   }
 
@@ -73,6 +78,20 @@ export function ExpenseProvider({ children }) {
     dispatchState({ type: "load", payload: financeData });
   }
 
+  async function requestPasswordReset(email) {
+    return api("/api/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async function resetPassword(token, password) {
+    return api("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    });
+  }
+
   function logout() {
     localStorage.removeItem(TOKEN_KEY);
     dispatchState({ type: "logout" });
@@ -94,11 +113,26 @@ export function ExpenseProvider({ children }) {
     }
   }
 
-  const totalSpent = state.expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const monthlyExpenses = state.expenses.filter(
+    (expense) => typeof expense.date === "string" && expense.date.slice(0, 7) === currentMonth
+  );
+  const totalSpent = monthlyExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
   const remaining = Number(state.budget) - totalSpent;
 
   return (
-    <ExpenseContext.Provider value={{ ...state, totalSpent, remaining, dispatch, authenticate, logout }}>
+    <ExpenseContext.Provider value={{
+      ...state,
+      monthlyExpenses,
+      totalSpent,
+      remaining,
+      dispatch,
+      authenticate,
+      requestPasswordReset,
+      resetPassword,
+      logout,
+    }}>
       {children}
     </ExpenseContext.Provider>
   );

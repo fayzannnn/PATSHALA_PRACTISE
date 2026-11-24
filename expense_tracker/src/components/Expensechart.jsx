@@ -16,7 +16,8 @@ const getColor = (name) => COLORS[name.toLowerCase()] ?? FALLBACK_COLOR;
 const formatINR = (n) => `₹${Number(n).toLocaleString("en-IN")}`;
 
 function ExpenseChart() {
-  const { expenses } = useExpenses();
+  const { monthlyExpenses } = useExpenses();
+  const expenses = monthlyExpenses;
 
   if (expenses.length === 0) {
     return (

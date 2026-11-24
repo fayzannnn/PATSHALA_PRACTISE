@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useExpenses } from "../context/ExpenseContext";
 import ExpenseChart from "./Expensechart";
+import Addbudget from "./Addbudget";
+import AddExpense from "./AddExpense";
+import Modal from "./Modal";
 import {
   BarChart,
   Bar,
@@ -15,6 +18,27 @@ import {
 import "./Dashboard.css";
 
 const formatINR = (n) => `₹${Number(n).toLocaleString("en-IN")}`;
+const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const formatDate = (date) => date
+  ? new Date(`${date}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+  : "Date not set";
+
+function TransactionItem({ expense, onEdit, onDelete }) {
+  return (
+    <li className="dash-expense" key={expense.id}>
+      <span className={`dash-expense-icon category-${expense.category?.toLowerCase()}`}>{expense.category?.[0] || "E"}</span>
+      <div className="dash-expense-info">
+        <span className="dash-expense-title">{expense.title}</span>
+        <span className="dash-expense-category">{expense.category} · {formatDate(expense.date)}</span>
+      </div>
+      <span className="dash-expense-amount">-{formatINR(expense.amount)}</span>
+      <div className="dash-expense-actions">
+        <button className="dash-small-btn" onClick={() => onEdit(expense.id)} aria-label={`Edit ${expense.title}`}><Icon name="edit" size={15}/></button>
+        <button className="dash-small-btn delete" onClick={() => onDelete(expense.id)} aria-label={`Delete ${expense.title}`}><Icon name="trash" size={15}/></button>
+      </div>
+    </li>
+  );
+}
 
 function Icon({ name, size = 20 }) {
   const paths = {
@@ -33,9 +57,15 @@ function Icon({ name, size = 20 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
-function Dashboard({ onNavigate, onEdit, userName = "Alex" }) {
-  const { budget, totalSpent, remaining, expenses, dispatch, user, logout } = useExpenses();
+function Dashboard({ onEdit, userName = "Alex" }) {
+  const { budget, totalSpent, remaining, expenses, monthlyExpenses, dispatch, user, logout } = useExpenses();
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("expense-tracker-theme") === "dark");
+  const [showAllTransactions, setShowAllTransactions] = useState(false);
+  const [showAddBudget, setShowAddBudget] = useState(false);
+  const [showAddExpense, setShowAddExpense] = useState(false);
+  const [range, setRange] = useState("week");
+  const [isRangeMenuOpen, setIsRangeMenuOpen] = useState(false);
+  const rangeSelectorRef = useRef(null);
   const displayName = user?.name || userName;
   const spentPercent = budget > 0 ? Math.min((totalSpent / budget) * 100, 100) : 0;
 
@@ -45,27 +75,77 @@ function Dashboard({ onNavigate, onEdit, userName = "Alex" }) {
     localStorage.setItem("expense-tracker-theme", theme);
   }, [darkMode]);
 
+  useEffect(() => {
+    if (!isRangeMenuOpen) return undefined;
+
+    const handleOutsideClick = (event) => {
+      if (!rangeSelectorRef.current?.contains(event.target)) setIsRangeMenuOpen(false);
+    };
+    const handleEscape = (event) => {
+      if (event.key === "Escape") setIsRangeMenuOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("touchstart", handleOutsideClick);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("touchstart", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isRangeMenuOpen]);
+
   const categoryData = ["Food", "Travel", "Shopping", "Bills", "Others"].map((name) => ({
     name,
-    amount: expenses
+    amount: monthlyExpenses
       .filter((expense) => expense.category === name)
       .reduce((sum, expense) => sum + Number(expense.amount), 0),
   })).filter((item) => item.amount > 0);
 
-  const weeklyData = [
-    { name: "Mon", amount: 0 },
-    { name: "Tue", amount: 0 },
-    { name: "Wed", amount: 0 },
-    { name: "Thu", amount: 0 },
-    { name: "Fri", amount: 0 },
-    { name: "Sat", amount: 0 },
-    { name: "Sun", amount: 0 },
-  ];
-  expenses.forEach((expense) => {
-    if (!expense.date) return;
-    const dayIndex = (new Date(`${expense.date}T00:00:00`).getDay() + 6) % 7;
-    weeklyData[dayIndex].amount += Number(expense.amount);
-  });
+  const { weeklyData, monthlyData } = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+    const weekly = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + index);
+      return {
+        name: date.toLocaleDateString("en-US", { weekday: "short" }),
+        date: dateKey(date),
+        amount: 0,
+      };
+    });
+    const weeklyDataByDate = new Map(weekly.map((day, index) => [day.date, index]));
+
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const currentMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const monthly = Array.from({ length: Math.ceil(daysInMonth / 7) }, (_, index) => ({
+      name: `Week ${index + 1}`,
+      amount: 0,
+    }));
+
+    expenses.forEach((expense) => {
+      if (typeof expense.date !== "string") return;
+
+      const weekIndex = weeklyDataByDate.get(expense.date);
+      if (weekIndex !== undefined) weekly[weekIndex].amount += Number(expense.amount || 0);
+
+      if (expense.date.slice(0, 7) === currentMonth) {
+        const dayOfMonth = Number(expense.date.slice(8, 10));
+        const monthWeekIndex = Math.floor((dayOfMonth - 1) / 7);
+        if (monthly[monthWeekIndex]) monthly[monthWeekIndex].amount += Number(expense.amount || 0);
+      }
+    });
+
+    return { weeklyData: weekly, monthlyData: monthly };
+  }, [expenses]);
+
+  const chartData = range === "week" ? weeklyData : monthlyData;
+  const hasSpending = chartData.some((day) => day.amount > 0);
+  const selectedRangeLabel = range === "week" ? "This week" : "This month";
 
   return (
     <div className={`dash-page${darkMode ? " dark-theme" : ""}`}>
@@ -73,8 +153,8 @@ function Dashboard({ onNavigate, onEdit, userName = "Alex" }) {
         <div className="dash-brand"><span className="dash-brand-mark">E</span><span>Expenso</span></div>
         <nav className="dash-nav" aria-label="Main navigation">
           <button className="dash-nav-item active"><Icon name="grid" /><span>Overview</span></button>
-          <button className="dash-nav-item" onClick={() => onNavigate("add")}><Icon name="receipt" /><span>Transactions</span></button>
-          <button className="dash-nav-item" onClick={() => onNavigate("budget")}><Icon name="wallet" /><span>Budget</span></button>
+          <button className="dash-nav-item" onClick={() => setShowAddExpense(true)}><Icon name="receipt" /><span>Transactions</span></button>
+          <button className="dash-nav-item" onClick={() => setShowAddBudget(true)}><Icon name="wallet" /><span>Budget</span></button>
           <button className="dash-nav-item"><Icon name="chart" /><span>Analytics</span></button>
         </nav>
         <button
@@ -104,7 +184,7 @@ function Dashboard({ onNavigate, onEdit, userName = "Alex" }) {
           <div className="dash-top-actions">
             <label className="dash-search"><Icon name="search" size={18}/><input aria-label="Search" placeholder="Search" /></label>
             <button className="dash-icon-btn" aria-label="Notifications"><Icon name="bell" size={19}/><span /></button>
-            <button className="dash-add-btn" onClick={() => onNavigate("add")}><Icon name="plus" size={18}/> Add expense</button>
+            <button className="dash-add-btn" onClick={() => setShowAddExpense(true)}><Icon name="plus" size={18}/> Add expense</button>
           </div>
         </header>
 
@@ -118,10 +198,10 @@ function Dashboard({ onNavigate, onEdit, userName = "Alex" }) {
           <div className="dash-card">
             <div className="dash-card-head"><span>Total spent</span><span className="dash-trend up">+8.2%</span></div>
             <p className="dash-card-value">{formatINR(totalSpent)}</p>
-            <p className="dash-card-meta">{expenses.length} transactions this month</p>
+            <p className="dash-card-meta">{monthlyExpenses.length} transactions this month</p>
           </div>
           <div className="dash-card">
-            <div className="dash-card-head"><span>Monthly budget</span><button className="dash-edit-budget" onClick={() => onNavigate("budget")}><Icon name="edit" size={14}/> Edit</button></div>
+            <div className="dash-card-head"><span>Monthly budget</span><button className="dash-edit-budget" onClick={() => setShowAddBudget(true)}><Icon name="edit" size={14}/> Edit</button></div>
             <p className="dash-card-value">{formatINR(budget)}</p>
             <p className="dash-card-meta">{formatINR(Math.max(remaining, 0))} remaining</p>
           </div>
@@ -134,12 +214,46 @@ function Dashboard({ onNavigate, onEdit, userName = "Alex" }) {
         <section className="dash-chart-grid">
           <div className="dash-chart-panel">
             <div className="dash-panel-head">
-              <div><p className="dash-panel-kicker">SPENDING ACTIVITY</p><h2>Weekly spending</h2></div>
-              <span className="dash-period">Last 7 days</span>
+              <div><p className="dash-panel-kicker">SPENDING ACTIVITY</p><h2>{range === "week" ? "Weekly spending" : "Monthly spending"}</h2></div>
+              <div className="dash-range-selector" ref={rangeSelectorRef}>
+                <button
+                  type="button"
+                  className="dash-period dash-period-button"
+                  aria-haspopup="menu"
+                  aria-expanded={isRangeMenuOpen}
+                  onClick={() => setIsRangeMenuOpen((open) => !open)}
+                >
+                  {selectedRangeLabel}
+                  <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
+                </button>
+                {isRangeMenuOpen && (
+                  <div className="dash-range-menu" role="menu" aria-label="Spending range">
+                    {[
+                      { value: "week", label: "This week" },
+                      { value: "month", label: "This month" },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={`dash-range-option${range === option.value ? " selected" : ""}`}
+                        role="menuitemradio"
+                        aria-checked={range === option.value}
+                        onClick={() => {
+                          setRange(option.value);
+                          setIsRangeMenuOpen(false);
+                        }}
+                      >
+                        <span>{option.label}</span>
+                        {range === option.value && <span className="dash-range-check" aria-hidden="true">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="dash-area-chart">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={weeklyData} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
+                <AreaChart key={range} data={chartData} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
                   <defs>
                     <linearGradient id="spendingFill" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#6c63ff" stopOpacity={0.24}/>
@@ -148,11 +262,12 @@ function Dashboard({ onNavigate, onEdit, userName = "Alex" }) {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ececf2"/>
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill:"#9295a1", fontSize:12 }} dy={8}/>
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill:"#9295a1", fontSize:12 }} tickFormatter={(value) => `₹${value/1000}k`}/>
+                  <YAxis domain={hasSpending ? [0, "auto"] : [0, 1]} axisLine={false} tickLine={false} tick={{ fill:"#9295a1", fontSize:12 }} tickFormatter={(value) => `₹${value/1000}k`}/>
                   <Tooltip formatter={(value) => formatINR(value)} contentStyle={{ borderRadius:10, border:"1px solid #eee", boxShadow:"0 8px 24px rgba(20,20,40,.08)" }}/>
-                  <Area type="monotone" dataKey="amount" stroke="#6c63ff" strokeWidth={3} fill="url(#spendingFill)" activeDot={{ r:5, fill:"#6c63ff", stroke:"#fff", strokeWidth:3 }}/>
+                  <Area type="monotone" dataKey="amount" stroke="#6c63ff" strokeWidth={3} fill="url(#spendingFill)" activeDot={{ r:5, fill:"#6c63ff", stroke:"#fff", strokeWidth:3 }} isAnimationActive animationDuration={650} animationEasing="ease-in-out"/>
                 </AreaChart>
               </ResponsiveContainer>
+              {!hasSpending && <span className="dash-chart-empty">No spending yet</span>}
             </div>
           </div>
 
@@ -182,31 +297,57 @@ function Dashboard({ onNavigate, onEdit, userName = "Alex" }) {
           <div className="dash-chart-panel transactions-panel">
             <div className="dash-panel-head">
               <div><p className="dash-panel-kicker">LATEST</p><h2>Recent transactions</h2></div>
-              <button className="dash-view-all" onClick={() => onNavigate("add")}>View all</button>
+              <button className="dash-view-all" onClick={() => setShowAllTransactions(true)}>View all</button>
             </div>
             {expenses.length === 0 ? (
               <p className="dash-empty">No expenses yet.</p>
             ) : (
               <ul className="dash-list">
-                {[...expenses].reverse().slice(0,5).map((e) => (
-                  <li key={e.id} className="dash-expense">
-                    <span className={`dash-expense-icon category-${e.category?.toLowerCase()}`}>{e.category?.[0] || "E"}</span>
-                    <div className="dash-expense-info">
-                      <span className="dash-expense-title">{e.title}</span>
-                      <span className="dash-expense-category">{e.category}</span>
-                    </div>
-                    <span className="dash-expense-amount">-{formatINR(e.amount)}</span>
-                    <div className="dash-expense-actions">
-                      <button className="dash-small-btn" onClick={() => onEdit(e.id)} aria-label={`Edit ${e.title}`}><Icon name="edit" size={15}/></button>
-                      <button className="dash-small-btn delete" onClick={() => dispatch({ type: "delete_expense", payload: e.id })} aria-label={`Delete ${e.title}`}><Icon name="trash" size={15}/></button>
-                    </div>
-                  </li>
+                {[...expenses].reverse().slice(0,5).map((expense) => (
+                  <TransactionItem
+                    key={expense.id}
+                    expense={expense}
+                    onEdit={onEdit}
+                    onDelete={(id) => dispatch({ type: "delete_expense", payload: id })}
+                  />
                 ))}
               </ul>
             )}
           </div>
         </section>
       </main>
+      <Modal isOpen={showAddBudget} onClose={() => setShowAddBudget(false)}>
+        <Addbudget onDone={() => setShowAddBudget(false)} />
+      </Modal>
+      <Modal isOpen={showAddExpense} onClose={() => setShowAddExpense(false)}>
+        <AddExpense onDone={() => setShowAddExpense(false)} />
+      </Modal>
+      <Modal isOpen={showAllTransactions} onClose={() => setShowAllTransactions(false)}>
+        <section className="transactions-modal">
+          <header className="modal-header">
+            <h2>All transactions</h2>
+            <button type="button" className="modal-close" onClick={() => setShowAllTransactions(false)} aria-label="Close">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M5 5l14 14M19 5L5 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+          </header>
+          {expenses.length === 0 ? (
+            <p className="dash-empty">No expenses yet.</p>
+          ) : (
+            <ul className="dash-list">
+              {[...expenses].reverse().map((expense) => (
+                <TransactionItem
+                  key={expense.id}
+                  expense={expense}
+                  onEdit={onEdit}
+                  onDelete={(id) => dispatch({ type: "delete_expense", payload: id })}
+                />
+              ))}
+            </ul>
+          )}
+        </section>
+      </Modal>
     </div>
   );
 }
