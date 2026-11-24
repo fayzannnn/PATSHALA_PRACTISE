@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useExpenses } from "../context/ExpenseContext";
 import ExpenseChart from "./Expensechart";
 import {
@@ -26,13 +27,23 @@ function Icon({ name, size = 20 }) {
     trash: <><path d="M3 6h18M8 6V3h8v3M19 6l-1 15H6L5 6M10 11v6M14 11v6"/></>,
     search: <><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></>,
     bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></>,
+    moon: <path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z"/>,
+    sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
 function Dashboard({ onNavigate, onEdit, userName = "Alex" }) {
-  const { budget, totalSpent, remaining, expenses, dispatch } = useExpenses();
+  const { budget, totalSpent, remaining, expenses, dispatch, user, logout } = useExpenses();
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("expense-tracker-theme") === "dark");
+  const displayName = user?.name || userName;
   const spentPercent = budget > 0 ? Math.min((totalSpent / budget) * 100, 100) : 0;
+
+  useEffect(() => {
+    const theme = darkMode ? "dark" : "light";
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("expense-tracker-theme", theme);
+  }, [darkMode]);
 
   const categoryData = ["Food", "Travel", "Shopping", "Bills", "Others"].map((name) => ({
     name,
@@ -57,7 +68,7 @@ function Dashboard({ onNavigate, onEdit, userName = "Alex" }) {
   });
 
   return (
-    <div className="dash-page">
+    <div className={`dash-page${darkMode ? " dark-theme" : ""}`}>
       <aside className="dash-sidebar">
         <div className="dash-brand"><span className="dash-brand-mark">E</span><span>Expenso</span></div>
         <nav className="dash-nav" aria-label="Main navigation">
@@ -66,9 +77,21 @@ function Dashboard({ onNavigate, onEdit, userName = "Alex" }) {
           <button className="dash-nav-item" onClick={() => onNavigate("budget")}><Icon name="wallet" /><span>Budget</span></button>
           <button className="dash-nav-item"><Icon name="chart" /><span>Analytics</span></button>
         </nav>
-        <button className="dash-profile">
-          <span className="dash-avatar">{userName[0]}</span>
-          <span><strong>{userName}</strong><small>Personal account</small></span>
+        <button
+          className="dash-theme-toggle"
+          type="button"
+          role="switch"
+          aria-checked={darkMode}
+          aria-label={`Switch to ${darkMode ? "light" : "dark"} mode`}
+          onClick={() => setDarkMode((enabled) => !enabled)}
+        >
+          <Icon name={darkMode ? "sun" : "moon"} size={18} />
+          <span>{darkMode ? "Light mode" : "Dark mode"}</span>
+          <span className="dash-theme-switch" aria-hidden="true"><span /></span>
+        </button>
+        <button className="dash-profile" onClick={logout} title="Sign out">
+          <span className="dash-avatar">{displayName[0]?.toUpperCase()}</span>
+          <span><strong>{displayName}</strong><small>Sign out</small></span>
         </button>
       </aside>
 
@@ -76,7 +99,7 @@ function Dashboard({ onNavigate, onEdit, userName = "Alex" }) {
         <header className="dash-topbar">
           <div>
             <p className="dash-eyebrow">OVERVIEW</p>
-            <h1>Good morning, {userName}</h1>
+            <h1>Good morning, {displayName}</h1>
           </div>
           <div className="dash-top-actions">
             <label className="dash-search"><Icon name="search" size={18}/><input aria-label="Search" placeholder="Search" /></label>
