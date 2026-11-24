@@ -1,0 +1,163 @@
+/* Dark backdrop that centers the card */
+.ae-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.55);
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* White card */
+.ae-card {
+  width: 100%;
+  max-width: 480px;
+  max-height: 100%;
+  padding: 30px;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 20px;
+  box-sizing: border-box;
+}
+
+/* Title row with divider line */
+.ae-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  margin-bottom: 18px;
+  border-bottom: 2px solid #555;
+}
+
+.ae-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #111;
+}
+
+.ae-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  color: #111;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.ae-close:hover {
+  color: #5b6cff;
+}
+
+/* Form: labels and fields stacked */
+.ae-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.ae-label {
+  margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #111;
+}
+
+.ae-required {
+  margin-left: 2px;
+  color: #e11d48;
+}
+
+/* Inputs and select share one look */
+.ae-input {
+  width: 100%;
+  height: 50px;
+  padding: 0 16px;
+  margin-bottom: 20px;
+  font-family: inherit;
+  font-size: 16px;
+  color: #111;
+  background: #fff;
+  border: 1px solid #9ca3af;
+  border-radius: 10px;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.ae-input::placeholder {
+  color: #8a8f98;
+}
+
+.ae-input:focus {
+  border-color: #5b6cff;
+  box-shadow: 0 0 0 3px rgba(91, 108, 255, 0.2);
+}
+
+/* Select with a custom arrow */
+.ae-select {
+  padding-right: 44px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='8' viewBox='0 0 14 8' fill='none'%3E%3Cpath d='M1 1L7 7L13 1' stroke='%23555' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  cursor: pointer;
+}
+
+/* Grey text while "Choose a Category" is showing */
+.ae-placeholder {
+  color: #8a8f98;
+}
+
+.ae-select option {
+  color: #111;
+}
+
+/* Hide number arrows */
+.ae-input::-webkit-outer-spin-button,
+.ae-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.ae-input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Blue full-width button */
+.ae-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 48px;
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  background: #5b6cff;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.ae-submit:hover {
+  background: #4757e6;
+}
+
+.ae-submit:active {
+  transform: scale(0.98);
+}
+
+.ae-plus {
+  font-size: 22px;
+  line-height: 1;
+}

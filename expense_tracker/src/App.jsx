@@ -11,17 +11,13 @@ function App() {
   const [editID,setEditID]= useState(null)
 
   const goHome = ()=> setView("dashboard")
-
-
   const handleEdit = (id)=>{
     setEditID(id);
     setView("edit");
   }
 
-
   return (
     <ExpenseProvider>
-     <header>Expense Tracker</header>
      {view === "dashboard" && (
       <Dashboard onNavigate={setView} onEdit={handleEdit}/>
      )}

@@ -1,0 +1,96 @@
+.chart-card {
+  min-width: 0;
+  padding: 18px 20px;
+  margin: 0;
+  background: #fff;
+  border: 1px solid #ededf3;
+  border-radius: 14px;
+  box-shadow: 0 5px 18px rgba(33,35,55,.025);
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+.chart-title {
+  margin: 0 0 2px;
+  color: #303240;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.chart-empty {
+  margin: 20px 0;
+  color: #9a9dab;
+  font-size: 12px;
+}
+
+.chart-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.chart-wrap {
+  position: relative;
+  width: 190px;
+  height: 190px;
+  margin: 0 auto;
+}
+
+.chart-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.chart-center-label {
+  color: #aaaebe;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+.chart-center-value {
+  margin-top: 3px;
+  color: #303240;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.chart-legend {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px 10px;
+  padding: 0;
+  margin: 2px 0 0;
+  list-style: none;
+}
+
+.chart-legend-item {
+  display: grid;
+  grid-template-columns: 8px 1fr auto;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-size: 10px;
+}
+
+.chart-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.chart-legend-name {
+  overflow: hidden;
+  color: #777a89;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-legend-amount,
+.chart-legend-percent { display: none; }
