@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useExpenses } from "../context/ExpenseContext";
 import ExpenseChart from "./Expensechart";
 import Addbudget from "./Addbudget";
-import AddExpense from "./AddExpense";
+import AddExpense from "./Addexpense";
 import Modal from "./Modal";
 import SpendingHistory from "./history/SpendingHistory";
 import CalendarPage from "./calendar/CalendarPage";

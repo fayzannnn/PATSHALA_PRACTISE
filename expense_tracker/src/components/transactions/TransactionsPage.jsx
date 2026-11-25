@@ -16,7 +16,7 @@ import {
 } from "../../utils/transactionHelpers";
 import Modal from "../Modal";
 import Editexpense from "../Editexpense";
-import AddExpense from "../AddExpense";
+import AddExpense from "../Addexpense";
 import TransactionsSummary from "./TransactionsSummary";
 import TransactionFilters from "./TransactionFilters";
 import ActiveFilterChips from "./ActiveFilterChips";
