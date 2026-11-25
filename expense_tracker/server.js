@@ -11,14 +11,25 @@ import nodemailer from "nodemailer";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const JWT_SECRET = process.env.JWT_SECRET || "development-expense-tracker-secret-change-in-production";
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://127.0.0.1:5173";
+const NODE_ENV = process.env.NODE_ENV || "development";
+const JWT_SECRET = process.env.JWT_SECRET;
+const FRONTEND_URL = process.env.FRONTEND_URL || (NODE_ENV === "production" ? "" : "http://127.0.0.1:5173");
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+if (NODE_ENV === "production" && !JWT_SECRET) {
+  throw new Error("JWT_SECRET is required when NODE_ENV=production");
+}
+if (NODE_ENV === "production" && !FRONTEND_URL) {
+  throw new Error("FRONTEND_URL is required when NODE_ENV=production");
+}
+
+const serverJWTSecret = JWT_SECRET || "development-expense-tracker-secret";
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
-const db = new sqlite3.Database(path.join(__dirname, "data.sqlite"));
+const databasePath = process.env.DATABASE_PATH || path.join(__dirname, "data.sqlite");
+const db = new sqlite3.Database(databasePath);
 const run = (sql, params = []) => new Promise((resolve, reject) =>
   db.run(sql, params, function (error) { error ? reject(error) : resolve({ lastID: this.lastID, changes: this.changes }); })
 );
@@ -74,14 +85,14 @@ function publicUser(row) {
 }
 
 function signToken(user) {
-  return jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign({ id: user.id }, serverJWTSecret, { expiresIn: "7d" });
 }
 
 function auth(req, res, next) {
   const token = req.headers.authorization?.replace(/^Bearer\s+/i, "");
   if (!token) return res.status(401).json({ message: "Authentication required" });
   try {
-    req.userId = jwt.verify(token, JWT_SECRET).id;
+    req.userId = jwt.verify(token, serverJWTSecret).id;
     next();
   } catch {
     res.status(401).json({ message: "Invalid or expired session" });
@@ -288,6 +299,15 @@ app.delete("/api/expenses/:id", auth, async (req, res) => {
   res.status(204).send();
 });
 
-app.listen(PORT, "127.0.0.1", () =>
-  console.log(`Expense Tracker API listening on http://127.0.0.1:${PORT}`)
+const distPath = path.join(__dirname, "dist");
+app.use(express.static(distPath));
+app.use((req, res, next) => {
+  if (req.method !== "GET" || req.path.startsWith("/api/")) return next();
+  res.sendFile(path.join(distPath, "index.html"), (error) => {
+    if (error) next(error);
+  });
+});
+
+app.listen(PORT, "0.0.0.0", () =>
+  console.log(`Expense Tracker listening on port ${PORT}`)
 );

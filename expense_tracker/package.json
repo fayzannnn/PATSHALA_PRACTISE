@@ -7,7 +7,7 @@
     "dev": "npm run dev:full",
     "dev:web": "vite --host 127.0.0.1",
     "server": "node server.js",
-    "start": "npm run dev:full",
+    "start": "node server.js",
     "dev:full": "concurrently -k -n API,WEB -c yellow,cyan \"npm run server\" \"npm run dev:web\"",
     "build": "vite build",
     "lint": "eslint .",
