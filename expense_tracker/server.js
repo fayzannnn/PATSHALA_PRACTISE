@@ -204,7 +204,7 @@ app.get("/api/auth/me", auth, async (req, res) => {
 
 app.get("/api/expenses", auth, async (req, res) => {
   const expenses = await all(
-    "SELECT id, title, amount, category, date FROM expenses WHERE user_id = ? ORDER BY date DESC, id DESC",
+    "SELECT id, title, amount, category, date, created_at FROM expenses WHERE user_id = ? ORDER BY date DESC, id DESC",
     [req.userId]
   );
   const budgetRow = await get("SELECT amount FROM budgets WHERE user_id = ?", [req.userId]);
@@ -230,6 +230,25 @@ app.put("/api/budget", auth, async (req, res) => {
   res.json({ budget: amount, month });
 });
 
+app.delete("/api/budget/:month", auth, async (req, res) => {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(req.params.month)) {
+    return res.status(400).json({ message: "Budget month must use YYYY-MM format" });
+  }
+  await run(
+    "DELETE FROM monthly_budgets WHERE user_id = ? AND month_key = ?",
+    [req.userId, req.params.month]
+  );
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  if (req.params.month === currentMonth) {
+    await run(
+      "UPDATE budgets SET amount = 0, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?",
+      [req.userId]
+    );
+  }
+  res.status(204).send();
+});
+
 app.post("/api/expenses", auth, async (req, res) => {
   const title = String(req.body.title || "").trim();
   const amount = Number(req.body.amount);
@@ -242,7 +261,7 @@ app.post("/api/expenses", auth, async (req, res) => {
     "INSERT INTO expenses (user_id, title, amount, category, date) VALUES (?, ?, ?, ?, ?)",
     [req.userId, title, amount, category, date]
   );
-  const expense = await get("SELECT id, title, amount, category, date FROM expenses WHERE id = ? AND user_id = ?", [result.lastID, req.userId]);
+  const expense = await get("SELECT id, title, amount, category, date, created_at FROM expenses WHERE id = ? AND user_id = ?", [result.lastID, req.userId]);
   res.status(201).json(expense);
 });
 
@@ -258,7 +277,7 @@ app.put("/api/expenses/:id", auth, async (req, res) => {
     "UPDATE expenses SET title = ?, amount = ?, category = ?, date = ? WHERE id = ? AND user_id = ?",
     [title, amount, category, date, req.params.id, req.userId]
   );
-  const expense = await get("SELECT id, title, amount, category, date FROM expenses WHERE id = ? AND user_id = ?", [req.params.id, req.userId]);
+  const expense = await get("SELECT id, title, amount, category, date, created_at FROM expenses WHERE id = ? AND user_id = ?", [req.params.id, req.userId]);
   if (!expense) return res.status(404).json({ message: "Expense not found" });
   res.json(expense);
 });

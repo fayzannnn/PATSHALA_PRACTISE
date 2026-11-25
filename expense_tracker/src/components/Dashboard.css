@@ -143,6 +143,18 @@
   background: #fafafd;
   border: 1px solid #efeff4;
   border-radius: 12px;
+}
+
+.dash-signature {
+  margin-top: 10px;
+  padding-top: 10px;
+  color: #aaaebe;
+  border-top: 1px solid #efeff4;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  text-transform: lowercase;
   color: #252735;
   font-family: inherit;
   text-align: left;
@@ -707,6 +719,7 @@
   .dash-brand > span:last-child,
   .dash-nav-item span,
   .dash-profile > span:last-child { display: none; }
+  .dash-signature { display: none; }
   .dash-nav-item { justify-content: center; padding: 0; }
   .dash-theme-toggle { justify-content: center; padding: 0; }
   .dash-theme-toggle > span:not(.dash-theme-switch),
@@ -738,7 +751,8 @@
     border-top: 1px solid #ececf2;
   }
   .dash-brand,
-  .dash-profile { display: none; }
+  .dash-profile,
+  .dash-signature { display: none; }
   .dash-nav { width: auto; flex: 1; flex-direction: row; justify-content: space-around; }
   .dash-nav-item { width: 48px; }
   .dash-theme-toggle {
@@ -782,6 +796,11 @@
 
 :root[data-theme="dark"] .dash-sidebar {
   border-right-color: #2e303c;
+}
+
+:root[data-theme="dark"] .dash-signature {
+  color: #777a8a;
+  border-top-color: #2e303c;
 }
 
 :root[data-theme="dark"] .dash-brand,

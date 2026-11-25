@@ -3,10 +3,10 @@ import { useExpenses } from "../context/ExpenseContext";
 import { getLocalDateString } from "../utils/date";
 import "./Addbudget.css";
 
-function Addbudget({ onDone }) {
+function Addbudget({ onDone, initialMonth = "" }) {
   const { budget, budgets = {}, dispatch } = useExpenses();
-  const [month, setMonth] = useState(() => getLocalDateString().slice(0, 7));
-  const [value, setValue] = useState(() => budgets[getLocalDateString().slice(0, 7)] ?? (budget || ""));
+  const [month, setMonth] = useState(() => initialMonth || getLocalDateString().slice(0, 7));
+  const [value, setValue] = useState(() => budgets[initialMonth || getLocalDateString().slice(0, 7)] ?? (initialMonth ? "" : (budget || "")));
   const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {

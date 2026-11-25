@@ -6,6 +6,8 @@ import AddExpense from "./AddExpense";
 import Modal from "./Modal";
 import SpendingHistory from "./history/SpendingHistory";
 import CalendarPage from "./calendar/CalendarPage";
+import TransactionsPage from "./transactions/TransactionsPage";
+import BudgetPage from "./budget/BudgetPage";
 import PeriodChip from "./calendar/PeriodChip";
 import SearchSuggestions from "./calendar/SearchSuggestions";
 import {
@@ -280,7 +282,7 @@ function Dashboard({ onEdit, userName = "Alex" }) {
       const target = event.target;
       const isTyping = target instanceof HTMLElement
         && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
-      if (event.key === "/" && !isTyping && activePage === "overview") {
+      if (event.key === "/" && !isTyping && (activePage === "overview" || activePage === "transactions")) {
         event.preventDefault();
         searchInputRef.current?.focus();
       } else if (event.key === "Escape") {
@@ -454,9 +456,8 @@ function Dashboard({ onEdit, userName = "Alex" }) {
         <div className="dash-brand"><span className="dash-brand-mark">E</span><span>Expenso</span></div>
         <nav className="dash-nav" aria-label="Main navigation">
           <button type="button" className={`dash-nav-item${activePage === "overview" ? " active" : ""}`} onClick={goToOverview}><Icon name="grid" /><span>Overview</span></button>
-          <button className="dash-nav-item" onClick={() => setShowAddExpense(true)}><Icon name="receipt" /><span>Transactions</span></button>
-          <button className="dash-nav-item" onClick={() => setShowAddBudget(true)}><Icon name="wallet" /><span>Budget</span></button>
-          <button className="dash-nav-item"><Icon name="chart" /><span>Analytics</span></button>
+          <button type="button" className={`dash-nav-item${activePage === "transactions" ? " active" : ""}`} onClick={() => setActivePage("transactions")}><Icon name="receipt" /><span>Transactions</span></button>
+          <button type="button" className={`dash-nav-item${activePage === "budget" ? " active" : ""}`} onClick={() => setActivePage("budget")}><Icon name="wallet" /><span>Budget</span></button>
           <button type="button" className={`dash-nav-item${activePage === "calendar" ? " active" : ""}`} onClick={() => setActivePage("calendar")}><Icon name="calendar" /><span>Calendar</span></button>
         </nav>
         <button
@@ -475,6 +476,9 @@ function Dashboard({ onEdit, userName = "Alex" }) {
           <span className="dash-avatar">{displayName[0]?.toUpperCase()}</span>
           <span><strong>{displayName}</strong><small>Sign out</small></span>
         </button>
+        <div className="dash-signature" aria-label="Made by FZN">
+          <span>fzn//dev</span>
+        </div>
       </aside>
 
       <main className="dash-main">
@@ -483,7 +487,7 @@ function Dashboard({ onEdit, userName = "Alex" }) {
         <header className="dash-topbar">
           <div>
             <p className="dash-eyebrow">OVERVIEW</p>
-            <h1>Good morning, {displayName}</h1>
+            <h1>Hello, {displayName}</h1>
             {!isDefaultPeriod && (
               <span className="period-active-chip">
                 Showing: {activePeriod.label}
@@ -560,9 +564,8 @@ function Dashboard({ onEdit, userName = "Alex" }) {
             <p className="dash-card-meta">{periodExpenses.length} {periodExpenses.length === 1 ? "transaction" : "transactions"} · {activePeriod.label}</p>
           </div>
           <div className="dash-card">
-            <div className="dash-card-head"><span>Budget vs spent</span><button className="dash-edit-budget" onClick={() => setShowAddBudget(true)}><Icon name="edit" size={14}/> Edit</button></div>
-            <p className="dash-card-value">{formatINR(periodTotal)} <small>{periodBudget > 0 ? `of ${formatINR(periodBudget)}` : "budget not set"}</small></p>
-            <div className={`dash-period-progress${periodTotal > periodBudget && periodBudget > 0 ? " over" : ""}`}><span style={{ width: `${Math.min(periodBudget > 0 ? (periodTotal / periodBudget) * 100 : 0, 100)}%` }}/></div>
+            <div className="dash-card-head"><span>Budget</span><button className="dash-edit-budget" onClick={() => setShowAddBudget(true)}><Icon name="edit" size={14}/> Edit</button></div>
+            <p className="dash-card-value">{periodBudget > 0 ? formatINR(periodBudget) : "Not set"}</p>
             <p className="dash-card-meta">{activePeriod.label}</p>
           </div>
         </section>
@@ -707,6 +710,10 @@ function Dashboard({ onEdit, userName = "Alex" }) {
           </div>
         </section>
           </>
+        ) : activePage === "transactions" ? (
+          <TransactionsPage onBack={goToOverview} />
+        ) : activePage === "budget" ? (
+          <BudgetPage onBack={goToOverview} />
         ) : (
           <CalendarPage onBack={goToOverview} onEdit={onEdit} />
         )}

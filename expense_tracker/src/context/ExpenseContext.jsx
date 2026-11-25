@@ -149,6 +149,12 @@ function reducer(state, action) {
       return { ...state, expenses: state.expenses.map((expense) => expense.id === action.payload.id ? action.payload : expense) };
     case "delete_expense":
       return { ...state, expenses: state.expenses.filter((expense) => expense.id !== action.payload) };
+    case "delete_budget":
+      return {
+        ...state,
+        budgets: Object.fromEntries(Object.entries(state.budgets).filter(([month]) => month !== action.payload)),
+        budget: action.payload === currentMonthKey() ? 0 : state.budget,
+      };
     default:
       return state;
   }
@@ -256,6 +262,9 @@ export function ExpenseProvider({ children }) {
     } else if (action.type === "delete_expense") {
       await api(`/api/expenses/${action.payload}`, { method: "DELETE" });
       dispatchState({ type: "delete_expense", payload: action.payload });
+    } else if (action.type === "delete_budget") {
+      await api(`/api/budget/${action.payload}`, { method: "DELETE" });
+      dispatchState({ type: "delete_budget", payload: action.payload });
     }
   }
 
