@@ -1,16 +1,26 @@
-# React + Vite
+# Expense Tracker
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Run locally
 
-Currently, two official plugins are available:
+1. Install dependencies with `npm install`.
+2. Copy `.env.example` to `.env`.
+3. Set `MONGODB_URI` to your MongoDB Atlas connection string and ensure your Atlas network access allows the machine running the app.
+4. Run `npm run dev`.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The server uses the `expense_tracker` database by default. Override it with `MONGODB_DB` if needed. Never commit `.env` or share your Atlas connection string.
 
-## React Compiler
+## Move existing SQLite data to MongoDB
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Back up `data.sqlite` before migration. Set `SQLITE_PATH` to the SQLite file and set `MONGODB_URI` / `MONGODB_DB` to the target Atlas database, then run:
 
-## Expanding the ESLint configuration
+```sh
+npm run migrate:sqlite
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+The migration stops if any target MongoDB collections already contain data. It imports accounts, expenses, budgets, and password reset tokens in one transaction. After moving accounts, users may need to sign in again because MongoDB user IDs differ from SQLite IDs.
+
+After confirming the imported data in Atlas, start the app with `npm run dev`. The SQLite file is only used by the migration script; the application server now reads and writes MongoDB.
+
+## Production
+
+Build the frontend with `npm run build`, then start the combined API and static frontend with `npm start`. Configure `NODE_ENV=production`, `MONGODB_URI`, `MONGODB_DB`, `JWT_SECRET`, and `FRONTEND_URL` in the hosting provider's environment settings.
