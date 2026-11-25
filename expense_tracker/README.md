@@ -23,4 +23,4 @@ After confirming the imported data in Atlas, start the app with `npm run dev`. T
 
 ## Production
 
-Build the frontend with `npm run build`, then start the combined API and static frontend with `npm start`. Configure `NODE_ENV=production`, `MONGODB_URI`, `MONGODB_DB`, `JWT_SECRET`, and `FRONTEND_URL` in the hosting provider's environment settings.
+Build the frontend with `npm ci --include=dev && npm run build`, then start the combined API and static frontend with `npm start`. The explicit `--include=dev` is needed on hosts that set `NODE_ENV=production` during builds because Vite is a development dependency. Configure `NODE_ENV=production`, `MONGODB_URI`, `MONGODB_DB`, `JWT_SECRET`, and `FRONTEND_URL` in the hosting provider's environment settings.
